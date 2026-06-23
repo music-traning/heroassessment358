@@ -1,6 +1,5 @@
 'use client';
 
-// 💡 修正1: Suspense を追加
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { supabase } from '@/utils/supabase';
 import { 
@@ -22,12 +21,12 @@ type EmployeeData = {
   }[];
 };
 
-// 💡 修正2: 「DashboardPage」という名前を「DashboardContent」に変更し、export default を外す
 function DashboardContent() {
   const router = useRouter();
   
   // データ保持用のState
   const [currentUserId, setCurrentUserId] = useState('');
+  const [currentCompanyId, setCurrentCompanyId] = useState(''); // 💡 企業コードを保持するState
   const [userEmail, setUserEmail] = useState('');
   const [employees, setEmployees] = useState<EmployeeData[]>([]);
   
@@ -42,6 +41,7 @@ function DashboardContent() {
   // ==========================================
   useEffect(() => {
     const initDashboard = async () => {
+      // ① Supabaseから現在のログインユーザーを取得
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error || !user) {
@@ -51,12 +51,32 @@ function DashboardContent() {
       
       setCurrentUserId(user.id);
       setUserEmail(user.email || '管理者');
-      await fetchEmployeesData(user.id);
+
+      // ② companiesテーブルから、このユーザーが管理する「企業コード」を探す
+      const { data: companyData, error: companyError } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('admin_user_id', user.id)
+        .maybeSingle(); // エラーを出さずに0件か1件を取得
+
+      if (companyError || !companyData) {
+        console.warn('このアカウントに紐づく企業コードが見つかりません。');
+        setLoading(false);
+        return; // 企業が見つからない場合はここでストップ
+      }
+
+      const companyId = companyData.id;
+      setCurrentCompanyId(companyId);
+      
+      // ③ 見つけた「企業コード」を使って社員データを取得
+      await fetchEmployeesData(companyId);
     };
+    
     initDashboard();
   }, [router]);
 
-  const fetchEmployeesData = async (userId: string) => {
+  // 引数として受け取った企業コード(cid)で社員を検索
+  const fetchEmployeesData = async (cid: string) => {
     setLoading(true);
     try {
       const { data: empData, error: empError } = await supabase
@@ -65,7 +85,7 @@ function DashboardContent() {
           id, employee_id_or_name, department, role,
           assessment_results ( type_str, tier, percentages, created_at )
         `)
-        .eq('company_id', userId);
+        .eq('company_id', cid); // 💡 UUIDではなく、見つけた企業コードで検索！
 
       if (empError) throw empError;
       setEmployees((empData as EmployeeData[]) || []);
@@ -80,14 +100,19 @@ function DashboardContent() {
   // 2. テストデータ生成処理
   // ==========================================
   const generateTestData = async () => {
-    if (!currentUserId) return;
+    if (!currentCompanyId) {
+      alert("企業コードが紐付いていないためテストデータを生成できません。Supabaseのcompaniesテーブルに、あなたのユーザーIDを登録してください。");
+      return;
+    }
+    
     setLoading(true);
     try {
       const { data: emps, error: empError } = await supabase
         .from('employees')
         .insert([
-          { company_id: currentUserId, employee_id_or_name: 'デモ社員A', department: '営業部', role: 'リーダー' },
-          { company_id: currentUserId, employee_id_or_name: 'デモ社員B', department: '開発部', role: 'メンバー' }
+          // 💡 企業コード(currentCompanyId)を使って社員を登録
+          { company_id: currentCompanyId, employee_id_or_name: 'デモ社員A', department: '営業部', role: 'リーダー' },
+          { company_id: currentCompanyId, employee_id_or_name: 'デモ社員B', department: '開発部', role: 'メンバー' }
         ])
         .select();
 
@@ -95,12 +120,13 @@ function DashboardContent() {
 
       if (emps && emps.length === 2) {
         await supabase.from('assessment_results').insert([
-          { company_id: currentUserId, employee_id: emps[0].id, type_str: 'HHHH', tier: 1, percentages: { H: 90, E: 85, R: 80, O: 95 }, user_id: currentUserId },
-          { company_id: currentUserId, employee_id: emps[1].id, type_str: 'LLHL', tier: 1, percentages: { H: 40, E: 30, R: 75, O: 45 }, user_id: currentUserId }
+          { company_id: currentCompanyId, employee_id: emps[0].id, type_str: 'HHHH', tier: 1, percentages: { H: 90, E: 85, R: 80, O: 95 }, user_id: currentUserId },
+          { company_id: currentCompanyId, employee_id: emps[1].id, type_str: 'LLHL', tier: 1, percentages: { H: 40, E: 30, R: 75, O: 45 }, user_id: currentUserId }
         ]);
       }
       
-      await fetchEmployeesData(currentUserId);
+      // 生成後、再度データを取得して画面を更新
+      await fetchEmployeesData(currentCompanyId);
     } catch (error: any) {
       console.error(error);
       alert("テストデータの生成に失敗しました。");
@@ -113,6 +139,7 @@ function DashboardContent() {
   // 3. AI分析処理（プラン判定）
   // ==========================================
   const generateAiReport = async () => {
+    // 💡 プレミアム権限のチェック
     const premiumEmails = ['admin@example.com']; 
 
     if (!premiumEmails.includes(userEmail)) {
@@ -139,7 +166,12 @@ function DashboardContent() {
         body: JSON.stringify({ chartData })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "分析中にエラーが発生しました。");
+      
+      if (!response.ok) {
+        if (response.status === 503) throw new Error("現在AIサーバーが混み合っています。数分待って再度お試しください。");
+        throw new Error(data.error || "分析中にエラーが発生しました。");
+      }
+      
       setAiReport(data.report);
     } catch (error: any) {
       console.error(error);
@@ -208,10 +240,9 @@ function DashboardContent() {
               ← 前に戻る
             </Button>
 
-            {/* 💡 ここに設定ページへのボタンを追加！ */}
-             <Button variant="secondary" onClick={() => router.push('/dashboard/settings')}>
+            <Button variant="secondary" onClick={() => router.push('/dashboard/settings')}>
              ⚙️ 企業設定
-             </Button>
+            </Button>
 
             <Button color="fuchsia" onClick={generateAiReport} loading={isAnalyzing} disabled={employees.length === 0}>
               ✨ AI組織分析を実行する（プレミアム）
@@ -313,7 +344,6 @@ function DashboardContent() {
   );
 }
 
-// 💡 修正3: Suspenseで包んだ大枠を作成
 export default function DashboardPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">ダッシュボードを準備中...</div>}>
