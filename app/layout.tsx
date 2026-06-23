@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import "./globals.css";
 import { AuthProvider } from './AuthProvider'; // 💡 追加
 
