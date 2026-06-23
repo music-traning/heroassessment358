@@ -7,7 +7,7 @@ import { Card, Title, Button, TextInput } from '@tremor/react';
 import { heroData, calculateScore } from '@/utils/heroData';
 import { supabase } from '@/utils/supabase';
 
-// 💡 修正1: 画面の種類に 'help' を追加
+// 画面の種類
 type ScreenState = 'home' | 'entry' | 'quiz' | 'result' | 'help';
 
 function AssessmentContent() {
@@ -176,7 +176,6 @@ function AssessmentContent() {
         </div>
       )}
 
-      {/* 💡 修正2: マニュアル画面への導線を追加 */}
       <div className="mb-8 border-b border-slate-200 pb-8">
         <Button 
           variant="light" 
@@ -216,7 +215,6 @@ function AssessmentContent() {
     </Card>
   );
 
-  // 💡 修正3: マニュアル（ヘルプ）画面のコンポーネントを新規追加
   const renderHelp = () => (
     <Card className="max-w-3xl mx-auto mt-10 p-8 shadow-xl border-t-4 border-indigo-500">
       <div className="flex justify-between items-center mb-8 pb-4 border-b">
@@ -225,8 +223,6 @@ function AssessmentContent() {
       </div>
 
       <div className="space-y-12 text-slate-700 leading-relaxed">
-        
-        {/* セクション1：心理的資本とは */}
         <section>
           <h3 className="text-xl font-bold text-indigo-700 mb-4 flex items-center gap-2">
             <span className="bg-indigo-100 text-indigo-800 w-8 h-8 rounded-full flex items-center justify-center text-sm">1</span>
@@ -255,7 +251,6 @@ function AssessmentContent() {
           </div>
         </section>
 
-        {/* セクション2：16タイプの見方 */}
         <section>
           <h3 className="text-xl font-bold text-indigo-700 mb-4 flex items-center gap-2">
             <span className="bg-indigo-100 text-indigo-800 w-8 h-8 rounded-full flex items-center justify-center text-sm">2</span>
@@ -292,7 +287,6 @@ function AssessmentContent() {
           </div>
         </section>
 
-        {/* セクション3：使い方・心構え */}
         <section>
           <h3 className="text-xl font-bold text-indigo-700 mb-4 flex items-center gap-2">
             <span className="bg-indigo-100 text-indigo-800 w-8 h-8 rounded-full flex items-center justify-center text-sm">3</span>
@@ -319,7 +313,6 @@ function AssessmentContent() {
     <Card className="max-w-2xl mx-auto mt-10 p-8 border-t-4 border-blue-500 shadow-lg">
       <Title className="text-xl font-bold mb-6 text-slate-800">受診者情報の入力</Title>
       
-      {/* 💡 ここに折りたたみ式のヘルプセクションを追加！ */}
       <div className="mb-8 bg-indigo-50 border border-indigo-100 rounded-lg p-4">
         <details className="group">
           <summary className="flex items-center font-bold cursor-pointer text-sm text-indigo-800 outline-none">
@@ -349,7 +342,7 @@ function AssessmentContent() {
       {isRegistered && (
         <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
           <p className="text-sm text-blue-800 font-medium">
-            {isEditing ? '🔓 新しい部署や氏名を入力してください。' : '🔒 以下のアカウント情報に紐づけられています。'}
+            {isEditing ? '🔓 新しい情報を入力してください。' : '🔒 以下のアカウント情報に紐づけられています。'}
           </p>
           {!isEditing ? (
             <Button size="xs" variant="secondary" onClick={() => setIsEditing(true)}>
@@ -392,6 +385,15 @@ function AssessmentContent() {
           <TextInput 
             placeholder="例: 営業部 / 開発部" className="mt-1"
             value={empInfo.department} onChange={(e) => setEmpInfo({...empInfo, department: e.target.value})}
+            disabled={isRegistered && !isEditing} 
+          />
+        </div>
+        {/* 💡 ここに「役職」の入力欄を追加！ */}
+        <div>
+          <label className="text-sm font-medium text-slate-700">役職・肩書（任意）</label>
+          <TextInput 
+            placeholder="例: マネージャー / リーダー / メンバー" className="mt-1"
+            value={empInfo.role} onChange={(e) => setEmpInfo({...empInfo, role: e.target.value})}
             disabled={isRegistered && !isEditing} 
           />
         </div>
@@ -508,7 +510,7 @@ function AssessmentContent() {
   return (
     <div className="min-h-screen bg-slate-100 p-4">
       {currentScreen === 'home' && renderHome()}
-      {currentScreen === 'help' && renderHelp()} {/* 💡 マニュアル画面の表示判定を追加 */}
+      {currentScreen === 'help' && renderHelp()}
       {currentScreen === 'entry' && renderEntry()}
       {currentScreen === 'quiz' && renderQuiz()}
       {currentScreen === 'result' && renderResult()}
