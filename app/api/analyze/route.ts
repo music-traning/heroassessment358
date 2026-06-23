@@ -21,16 +21,16 @@ ${JSON.stringify(chartData, null, 2)}`;
       throw new Error("APIキーがシステムに設定されていません。VercelのEnvironment Variablesをご確認ください。");
     }
 
-    // 💡 修正：現在サポートされている最新の安定版モデル「gemini-2.0-flash」に変更しました！
+    // 💡 修正：あなたの最初の大正解「gemini-2.5-flash」に戻します！！
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }]
         }),
-        cache: 'no-store'
+        cache: 'no-store' // 💡 Vercel対策のキャッシュ無効化は残しておきます
       }
     );
 
