@@ -208,6 +208,11 @@ function DashboardContent() {
               ← 前に戻る
             </Button>
 
+            {/* 💡 ここに設定ページへのボタンを追加！ */}
+             <Button variant="secondary" onClick={() => router.push('/dashboard/settings')}>
+             ⚙️ 企業設定
+             </Button>
+
             <Button color="fuchsia" onClick={generateAiReport} loading={isAnalyzing} disabled={employees.length === 0}>
               ✨ AI組織分析を実行する（プレミアム）
             </Button>
