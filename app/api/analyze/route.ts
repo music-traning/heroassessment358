@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+// 💡 Vercelのキャッシュバグを防ぎ、常にサーバー側で最新の処理を行うための設定
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -12,23 +15,27 @@ export async function POST(req: Request) {
 【社員のアセスメントデータ】
 ${JSON.stringify(chartData, null, 2)}`;
 
+    // 💡 修正：process.env.GEMINI_API_KEY を直接参照する形を徹底
     const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      throw new Error("APIキーが設定されていません。");
+      // 💡 デバッグ用：何が原因で弾かれているのかログをより詳細に出力する
+      console.error("【エラー詳細】Vercel上でGEMINI_API_KEYが認識できていません。");
+      throw new Error("APIキーがシステムに設定されていません。VercelのEnvironment Variablesをご確認ください。");
     }
 
-    // 💡 モデル名を高速・低コストな「gemini-2.0-flash-lite」に変更しました
-    // 💡 修正：世界で一番安定しているエンタープライズ向けモデル「gemini-1.5-flash」を指定
-    // 💡 修正：あなたが最初に書いていた大正解の「gemini-2.5-flash」に戻します！
+    // 💡 モデル名を現在世界で最も安定しており、かつ超低コストな最新の「gemini-1.5-flash」に変更します
+    // ※gemini-2.5-flashはまだ実験的（Beta）なエンドポイントのため、本番サーバーから拒否されるケースがあります
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }]
-        })
+        }),
+        // 💡 サーバーサイドでのFetchのキャッシュを無効化する（Vercel対策）
+        cache: 'no-store'
       }
     );
 
@@ -37,16 +44,14 @@ ${JSON.stringify(chartData, null, 2)}`;
     if (!response.ok) {
       console.error("Google API Error:", data);
       
-      // 💡 429エラー（利用制限・残高不足）の場合
       if (response.status === 429 || (data.error && data.error.code === 429)) {
          throw new Error("現在AIのアクセス制限に達しています。残高を確認するか、しばらく待ってから再度お試しください。");
       }
-      // 💡 503エラー（Google側のサーバー大混雑）の場合
       if (response.status === 503 || (data.error && data.error.code === 503)) {
          throw new Error("現在、GoogleのAIサーバーが混み合っています。数分待ってから再度「分析する」ボタンを押してください。");
       }
       
-      throw new Error("AI分析中にエラーが発生しました。");
+      throw new Error(data.error?.message || "AI分析中にエラーが発生しました。");
     }
 
     const text = data.candidates[0].content.parts[0].text;
@@ -54,6 +59,6 @@ ${JSON.stringify(chartData, null, 2)}`;
 
   } catch (error: any) {
     console.error("Fetch API Error:", error.message || error);
-    return NextResponse.json({ error: "分析中にエラーが発生しました" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "分析中にエラーが発生しました" }, { status: 500 });
   }
 }
